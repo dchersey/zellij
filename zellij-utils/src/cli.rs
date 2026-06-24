@@ -1666,6 +1666,20 @@ tail -f /tmp/my-live-logfile | zellij action pipe --name logs --plugin https://e
         #[clap(long, value_parser, conflicts_with_all(&["fg", "bg"]))]
         reset: bool,
     },
+    /// Set a pane's frame/border color (e.g. to flag a mode). Rides on
+    /// set-pane-color internally, so no separate IPC action is needed.
+    SetPaneFrameColor {
+        /// The pane_id of the pane, eg. terminal_1, plugin_2 or 3 (equivalent to terminal_3).
+        /// Defaults to $ZELLIJ_PANE_ID if not provided.
+        #[clap(short, long, value_parser)]
+        pane_id: Option<String>,
+        /// Frame color as hex (e.g. "#8a2be2")
+        #[clap(long, value_parser)]
+        color: Option<String>,
+        /// Clear the frame color override
+        #[clap(long, value_parser, conflicts_with("color"))]
+        reset: bool,
+    },
 }
 
 #[cfg(test)]

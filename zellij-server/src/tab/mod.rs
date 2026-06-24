@@ -611,6 +611,9 @@ pub trait Pane {
         _client_id: Option<ClientId>,
     ) {
     }
+    /// Override the frame color with an arbitrary color (unlike the red/highlight
+    /// variants, which use fixed theme colors).
+    fn set_frame_color_override(&mut self, _color: PaletteColor) {}
     fn clear_pane_frame_color_override(&mut self, _client_id: Option<ClientId>);
     fn frame_color_override(&self) -> Option<PaletteColor>;
     fn invoked_with(&self) -> &Option<Run>;
@@ -699,6 +702,19 @@ pub enum AdjustedInput {
     DropToShellInThisPane { working_dir: Option<PathBuf> },
     WriteKeyToPlugin(KeyWithModifier),
 }
+/// Parse a "#rrggbb" (or "rrggbb") hex string into a PaletteColor. Returns None
+/// for anything else (e.g. "clear"), which callers treat as "clear the override".
+fn parse_hex_color(s: &str) -> Option<PaletteColor> {
+    let s = s.strip_prefix('#').unwrap_or(s);
+    if s.len() != 6 {
+        return None;
+    }
+    let r = u8::from_str_radix(&s[0..2], 16).ok()?;
+    let g = u8::from_str_radix(&s[2..4], 16).ok()?;
+    let b = u8::from_str_radix(&s[4..6], 16).ok()?;
+    Some(PaletteColor::Rgb((r, g, b)))
+}
+
 pub fn get_next_terminal_position(
     tiled_panes: &TiledPanes,
     floating_panes: &FloatingPanes,
@@ -2670,6 +2686,23 @@ impl Tab {
         fg: Option<String>,
         bg: Option<String>,
     ) -> Result<()> {
+        // Frame-color override rides on the fg field via a "frame:" marker, so it
+        // reuses SetPaneColor's existing action/IPC plumbing instead of a new
+        // protobuf action. "frame:#rrggbb" sets the border; "frame:clear" clears it.
+        if let Some(spec) = fg.as_deref().and_then(|s| s.strip_prefix("frame:")) {
+            if let Some(pane) = self
+                .floating_panes
+                .get_mut(&pane_id)
+                .or_else(|| self.tiled_panes.get_pane_mut(pane_id))
+                .or_else(|| self.suppressed_panes.get_mut(&pane_id).map(|p| &mut p.1))
+            {
+                match parse_hex_color(spec) {
+                    Some(color) => pane.set_frame_color_override(color),
+                    None => pane.clear_pane_frame_color_override(None),
+                }
+            }
+            return Ok(());
+        }
         let pane = self
             .floating_panes
             .get_mut(&pane_id)
