@@ -1,0 +1,18 @@
+#!/bin/bash
+# Toggle the "ultracode" marker for the current zellij pane so the statusline
+# paints its frame violet. Ultracode reports as plain "xhigh" with no external
+# signal to distinguish it, so this is a manual companion to Claude Code's
+# /effort ultracode. From inside Claude Code, use the `!` shell prefix:
+#   !claude-ultracode on     # when you enter ultracode
+#   !claude-ultracode off    # when you leave it
+#   !claude-ultracode        # toggle
+pane="${ZELLIJ_PANE_ID:?run this inside a zellij pane}"
+tmp="${TMPDIR:-/tmp}"
+flag="$tmp/claude-ultracode-$pane"
+case "${1:-toggle}" in
+  on)  : > "$flag" ;;
+  off) rm -f "$flag" ;;
+  *)   if [ -f "$flag" ]; then rm -f "$flag"; else : > "$flag"; fi ;;
+esac
+rm -f "$tmp/claude-frame-$pane"   # bust the statusline debounce so the next render reapplies
+if [ -f "$flag" ]; then echo "ultracode ON (violet) for pane $pane"; else echo "ultracode off for pane $pane"; fi

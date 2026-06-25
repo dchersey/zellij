@@ -1,0 +1,6 @@
+#!/bin/bash
+# nuc — shorthand for `claude-ultracode off` (clear the violet ultracode pane tag).
+# Named "nuc" (no-ultracode), NOT "nc", to avoid shadowing netcat (/usr/bin/nc).
+# Run as `!nuc` inside Claude Code; fires with no model turn (respondToBashCommands:false).
+# Install alongside claude-ultracode on your PATH.
+exec claude-ultracode off "$@"

@@ -1,0 +1,6 @@
+#!/bin/bash
+# uc — shorthand for `claude-ultracode on` (arm the violet ultracode pane tag).
+# Run as `!uc` inside Claude Code; with respondToBashCommands:false it fires with no
+# model turn, and the statusline's refreshInterval repaints the border within ~2s.
+# Install alongside claude-ultracode on your PATH.
+exec claude-ultracode on "$@"
