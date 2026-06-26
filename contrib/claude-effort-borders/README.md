@@ -125,8 +125,20 @@ you list change; the rest keep the built-in defaults.
 ```
 
 Values pass straight to `zellij action set-pane-color --frame`, so anything its color
-parser accepts works (hex like `#fea644`, etc.). Changes apply on the next statusline
-render — instantly if you've set `refreshInterval`.
+parser accepts works (hex like `#fea644`, etc.).
+
+Edits take effect **live, no restart** — the script re-reads the file on every render, so
+a change applies on the next statusline render (within `refreshInterval` seconds in every
+pane, or instantly on the next assistant message). Two things to know:
+
+- **Only the level a pane is currently at repaints right away.** The frame is debounced
+  (zellij is called only when the resolved color *changes*), so retinting `medium` shifts
+  panes that are at medium *now*; a pane at `xhigh` picks up the new medium when it next
+  drops there. That's expected, not lag.
+- **Invalid JSON silently falls back to the defaults.** The lookup is `jq … 2>/dev/null`,
+  so a syntax error (trailing comma, missing quote) makes that level use its built-in
+  color instead of erroring. If an edit seems ignored, validate the file:
+  `jq . ~/.claude/effort-colors.json`.
 
 (You can still edit the `case "$setting" in … esac` block in `statusline-effort.sh` to
 change the built-in *defaults* themselves.)
