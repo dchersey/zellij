@@ -67,7 +67,15 @@ fi
 
 # --- update the zellij pane frame, only when the color changes ---
 if [ "${ZELLIJ:-}" = "0" ] && [ -n "${ZELLIJ_PANE_ID:-}" ] && command -v zellij >/dev/null 2>&1; then
-  cache="${TMPDIR:-/tmp}/claude-frame-${ZELLIJ_PANE_ID}"
+  # Key the debounce cache by SESSION + pane id. Pane ids restart from low numbers in
+  # each new session, but $TMPDIR is shared, so a pane-id-only cache would make a
+  # restored pane whose computed color matches the *previous* session's cached value
+  # get skipped — the frame override is never re-applied to the new pane, so its frame
+  # falls back to the focused-pane color (e.g. green). Per-session keys start cold on
+  # restore, so every pane's color is freshly applied (and the override is actually set,
+  # which the bell-flash recovery in the zellij fork then relies on).
+  sess=$(printf '%s' "${ZELLIJ_SESSION_NAME:-nosess}" | tr -c 'A-Za-z0-9_.-' '_')
+  cache="${TMPDIR:-/tmp}/claude-frame-${sess}-${ZELLIJ_PANE_ID}"
   prev=$(cat "$cache" 2>/dev/null || echo "__none__")
   if [ "$color" != "$prev" ]; then
     printf '%s' "$color" > "$cache"
