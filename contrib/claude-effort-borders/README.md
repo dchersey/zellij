@@ -32,6 +32,7 @@ the current pane's frame to match the effort — via this fork's
 | `statusline-effort.sh` | The statusline. Reads Claude Code's status JSON, maps `.effort.level` → a color, and sets the pane frame (debounced; only calls zellij when the color changes). |
 | `claude-ultracode` | Toggles a per-pane "ultracode" marker file (ultracode can't be detected externally — see below). |
 | `uc` / `nuc` | One-keystroke shorthands for `claude-ultracode on` / `off`. |
+| `effort-colors.example.json` | Template color map — copy to `~/.claude/effort-colors.json` to override level colors without editing the script. |
 
 ## Install
 
@@ -114,5 +115,18 @@ if you don't use that toolset.
 
 ## Customizing colors
 
-Edit the `case "$setting" in … esac` block near the bottom of `statusline-effort.sh` —
-each level maps to a hex string (or empty to clear the frame).
+Drop a JSON map at `~/.claude/effort-colors.json` (path overridable via
+`$CLAUDE_EFFORT_COLORS`) to override any level's color **without editing the script** —
+copy `effort-colors.example.json` and tweak. It's a **partial** override: only the levels
+you list change; the rest keep the built-in defaults.
+
+```json
+{ "xhigh": "#fea644" }
+```
+
+Values pass straight to `zellij action set-pane-color --frame`, so anything its color
+parser accepts works (hex like `#fea644`, etc.). Changes apply on the next statusline
+render — instantly if you've set `refreshInterval`.
+
+(You can still edit the `case "$setting" in … esac` block in `statusline-effort.sh` to
+change the built-in *defaults* themselves.)

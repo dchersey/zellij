@@ -55,6 +55,16 @@ case "$setting" in
   *)         color="" ;;
 esac
 
+# --- optional per-level color overrides ($HOME/.claude/effort-colors.json) ---
+# A JSON object mapping effort level -> color (hex like "#fea644", or any value
+# zellij's color parser accepts), e.g. {"xhigh":"#fea644"}. Partial: any level not
+# listed keeps the built-in default above. Path overridable via $CLAUDE_EFFORT_COLORS.
+ocfile="${CLAUDE_EFFORT_COLORS:-$HOME/.claude/effort-colors.json}"
+if [ -n "$setting" ] && [ -f "$ocfile" ]; then
+  oc=$(jq -r --arg k "$setting" '.[$k] // empty' "$ocfile" 2>/dev/null)
+  [ -n "$oc" ] && color="$oc"
+fi
+
 # --- update the zellij pane frame, only when the color changes ---
 if [ "${ZELLIJ:-}" = "0" ] && [ -n "${ZELLIJ_PANE_ID:-}" ] && command -v zellij >/dev/null 2>&1; then
   cache="${TMPDIR:-/tmp}/claude-frame-${ZELLIJ_PANE_ID}"
