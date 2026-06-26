@@ -18,6 +18,19 @@ cwd=$(j '.workspace.current_dir')
 output_style=$(j '.output_style.name')
 effort=$(j '.effort.level')
 transcript=$(j '.transcript_path')
+session_id=$(j '.session_id')
+
+# Export this session's current effort so clauding-snapshot can bake it into restore
+# layouts (preserve per-pane effort across restore). Keyed by session id; stable path
+# ($HOME/.cache, NOT $TMPDIR) so a relay/LaunchAgent-run clauding-snapshot reads the
+# same files. Write only on change. Raw .effort.level (ultracode -> xhigh, the right
+# restore level since there's no --effort ultracode).
+if [ -n "$session_id" ] && [ -n "$effort" ]; then
+  edir="$HOME/.cache/claude-effort"; efile="$edir/$session_id"
+  if [ "$(cat "$efile" 2>/dev/null)" != "$effort" ]; then
+    mkdir -p "$edir" 2>/dev/null && printf '%s' "$effort" > "$efile" 2>/dev/null
+  fi
+fi
 
 # --- effort "setting", distinguishing ultracode from a plain xhigh ---
 # Ultracode reports as "xhigh" via .effort.level and there is NO external signal

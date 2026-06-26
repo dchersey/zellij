@@ -94,6 +94,16 @@ for you — add a rule like this to your `CLAUDE.md`:
 With this, ultracode → auto-violet and leaving it → auto-cleared; `!uc`/`!nuc` become
 pure lag-beaters.
 
+## Bonus: per-pane effort survives a session restore
+
+`statusline-effort.sh` also **exports** each session's current effort to
+`~/.cache/claude-effort/<session_id>` (written only on change). On its own this does
+nothing — but [claude-zellij-restore](https://github.com/dchersey/claude-zellij-restore)'s
+`clauding-snapshot` reads those files and bakes `--effort <level>` into each pane's
+`claude-resume` line, so a restored screenful of sessions comes back at the exact levels
+they had — *without* overwriting your saved global default (`effortLevel`). It's a no-op
+if you don't use that toolset.
+
 ## Graceful degradation
 
 - **Outside zellij** (`$ZELLIJ` unset): the statusline just renders its text line; no
