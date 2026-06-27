@@ -46,9 +46,9 @@ fi
 
 # --- map setting -> hex (empty = clear the override) ---
 case "$setting" in
-  ultracode) color="#8a2be2" ;;  # violet (Claude convention)
+  ultracode) color="#a667e2" ;;  # violet (Claude convention)
   max)       color="#ff3b30" ;;  # red
-  xhigh)     color="#ff8c0d" ;;  # orange (matches frame_highlight)
+  xhigh)     color="#febb71" ;;  # orange
   high)      color="#00ced1" ;;  # cyan
   medium)    color="#2ecc71" ;;  # green
   low)       color="#ff69b4" ;;  # pink

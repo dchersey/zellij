@@ -121,11 +121,11 @@ copy `effort-colors.example.json` and tweak. It's a **partial** override: only t
 you list change; the rest keep the built-in defaults.
 
 ```json
-{ "xhigh": "#fea644" }
+{ "xhigh": "#1e90ff" }
 ```
 
 Values pass straight to `zellij action set-pane-color --frame`, so anything its color
-parser accepts works (hex like `#fea644`, etc.).
+parser accepts works (hex like `#1e90ff`, etc.).
 
 Edits take effect **live, no restart** — the script re-reads the file on every render, so
 a change applies on the next statusline render (within `refreshInterval` seconds in every
