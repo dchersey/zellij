@@ -5,6 +5,7 @@
 #      what each pane is running at:
 #        ultracode = violet   max = red   xhigh = orange
 #        high = cyan   medium = green   low = pink   (none = cleared)
+#      A Fable-model session overrides all of the above with fuchsia (keyed by model, not effort).
 #
 # Ultracode reports as xhigh via .effort.level, so we disambiguate it from a plain
 # /effort xhigh by checking the last `/effort` command recorded in the transcript.
@@ -14,6 +15,7 @@ input=$(cat)
 
 j() { printf '%s' "$input" | jq -r "$1 // empty" 2>/dev/null; }
 model=$(j '.model.display_name')
+model_id=$(j '.model.id')
 cwd=$(j '.workspace.current_dir')
 output_style=$(j '.output_style.name')
 effort=$(j '.effort.level')
@@ -44,8 +46,17 @@ if [ "$effort" = "xhigh" ] && [ -n "${ZELLIJ_PANE_ID:-}" ] \
   setting="ultracode"
 fi
 
+# --- model override: Fable gets its own color, regardless of effort level ---
+# The frame normally encodes effort, but Fable is a distinct model worth spotting at a
+# glance, so a Fable session overrides the effort-derived setting. Match the model id
+# (claude-fable-5) or display name ("Fable 5"), case-insensitively.
+case "$(printf '%s %s' "$model_id" "$model" | tr '[:upper:]' '[:lower:]')" in
+  *fable*) setting="fable" ;;
+esac
+
 # --- map setting -> hex (empty = clear the override) ---
 case "$setting" in
+  fable)     color="#ff2ec4" ;;  # fuchsia (Fable model — overrides effort)
   ultracode) color="#a667e2" ;;  # violet (Claude convention)
   max)       color="#ff3b30" ;;  # red
   xhigh)     color="#febb71" ;;  # orange
