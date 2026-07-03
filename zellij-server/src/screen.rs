@@ -4763,6 +4763,66 @@ impl Screen {
             .find(|(_, p)| p.x() == x)
             .map(|(pid, _)| *pid)
     }
+    // Whether the given pane is currently part of a stack (its geom carries a stack id).
+    fn pane_is_stacked(tab: &Tab, pane_id: &PaneId) -> bool {
+        tab.get_tiled_panes()
+            .find(|(pid, _)| *pid == pane_id)
+            .map(|(_, p)| p.position_and_size().is_stacked())
+            .unwrap_or(false)
+    }
+    // When the focused tiled pane is moved toward an adjacent column that is a stack,
+    // JOIN that stack (add the pane to it) instead of the default geometry swap — which
+    // would otherwise eject a member of the destination stack to the source position.
+    // Returns true if it handled the move; false to fall back to the default swap
+    // (non-stacked neighbor, floating panes visible, tab edge, or no room to stack).
+    fn move_active_pane_into_adjacent_stack(&mut self, to_left: bool, client_id: ClientId) -> bool {
+        let (active_pane_id, neighbor) = {
+            let tab = match self.get_active_tab(client_id) {
+                Ok(t) => t,
+                Err(_) => return false,
+            };
+            if tab.are_floating_panes_visible() {
+                return false;
+            }
+            let active_pane_id = match tab.get_active_pane_id(client_id) {
+                Some(id) => id,
+                None => return false,
+            };
+            let rank = match Self::column_rank_of(tab, &active_pane_id) {
+                Some(r) => r,
+                None => return false,
+            };
+            let neighbor_rank = if to_left {
+                match rank.checked_sub(1) {
+                    Some(r) => r,
+                    None => return false,
+                }
+            } else {
+                rank + 1
+            };
+            let neighbor = match Self::pane_at_column_rank(tab, neighbor_rank) {
+                Some(p) => p,
+                None => return false,
+            };
+            // Join only in a stacked context: the destination column is a stack, OR the
+            // pane we're moving is itself stacked. (A column that drops to a single pane
+            // loses its stacked flag, so checking the moving pane covers coming back into
+            // such a column.) Otherwise fall through to the default swap — non-stacked
+            // layouts are unchanged.
+            if !Self::pane_is_stacked(tab, &active_pane_id)
+                && !Self::pane_is_stacked(tab, &neighbor)
+            {
+                return false;
+            }
+            (active_pane_id, neighbor)
+        };
+        if self.stack_panes(vec![neighbor, active_pane_id]).is_some() {
+            let _ = self.focus_pane_with_id(active_pane_id, false, false, client_id);
+            true
+        } else {
+            false
+        }
+    }
     pub fn break_pane_to_new_tab(
         &mut self,
         direction: Direction,
@@ -7265,11 +7325,13 @@ pub(crate) fn screen_thread_main(
                 _completion_tx, // the action ends here, dropping this will release anything
                                 // waiting for it
             ) => {
-                active_tab_and_connected_client_id!(
-                    screen,
-                    client_id,
-                    |tab: &mut Tab, client_id: ClientId| tab.move_active_pane_right(client_id)
-                );
+                if !screen.move_active_pane_into_adjacent_stack(false, client_id) {
+                    active_tab_and_connected_client_id!(
+                        screen,
+                        client_id,
+                        |tab: &mut Tab, client_id: ClientId| tab.move_active_pane_right(client_id)
+                    );
+                }
                 screen.render(None)?;
                 screen.log_and_report_session_state()?;
             },
@@ -7278,11 +7340,13 @@ pub(crate) fn screen_thread_main(
                 _completion_tx, // the action ends here, dropping this will release anything
                                 // waiting for it
             ) => {
-                active_tab_and_connected_client_id!(
-                    screen,
-                    client_id,
-                    |tab: &mut Tab, client_id: ClientId| tab.move_active_pane_left(client_id)
-                );
+                if !screen.move_active_pane_into_adjacent_stack(true, client_id) {
+                    active_tab_and_connected_client_id!(
+                        screen,
+                        client_id,
+                        |tab: &mut Tab, client_id: ClientId| tab.move_active_pane_left(client_id)
+                    );
+                }
                 screen.render(None)?;
                 screen.log_and_report_session_state()?;
             },
