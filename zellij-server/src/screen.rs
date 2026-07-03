@@ -4739,14 +4739,12 @@ impl Screen {
             .find(|(_, p)| p.x() == x)
             .map(|(pid, _)| *pid)
     }
-    // Like pane_at_column_rank, but only returns the pane if its column is a *stack*
-    // (its geom carries a stack id). Used to decide whether MovePane should join the
-    // adjacent column's stack rather than swap with it.
-    fn stacked_pane_at_column_rank(tab: &Tab, rank: usize) -> Option<PaneId> {
-        let x = *Self::tiled_column_xs(tab).get(rank)?;
+    // Whether the given pane is currently part of a stack (its geom carries a stack id).
+    fn pane_is_stacked(tab: &Tab, pane_id: &PaneId) -> bool {
         tab.get_tiled_panes()
-            .find(|(_, p)| p.x() == x && p.position_and_size().is_stacked())
-            .map(|(pid, _)| *pid)
+            .find(|(pid, _)| *pid == pane_id)
+            .map(|(_, p)| p.position_and_size().is_stacked())
+            .unwrap_or(false)
     }
     // When the focused tiled pane is moved toward an adjacent column that is a stack,
     // JOIN that stack (add the pane to it) instead of the default geometry swap — which
@@ -4778,10 +4776,21 @@ impl Screen {
             } else {
                 rank + 1
             };
-            match Self::stacked_pane_at_column_rank(tab, neighbor_rank) {
-                Some(p) => (active_pane_id, p),
+            let neighbor = match Self::pane_at_column_rank(tab, neighbor_rank) {
+                Some(p) => p,
                 None => return false,
+            };
+            // Join only in a stacked context: the destination column is a stack, OR the
+            // pane we're moving is itself stacked. (A column that drops to a single pane
+            // loses its stacked flag, so checking the moving pane covers coming back into
+            // such a column.) Otherwise fall through to the default swap — non-stacked
+            // layouts are unchanged.
+            if !Self::pane_is_stacked(tab, &active_pane_id)
+                && !Self::pane_is_stacked(tab, &neighbor)
+            {
+                return false;
             }
+            (active_pane_id, neighbor)
         };
         if self.stack_panes(vec![neighbor, active_pane_id]).is_some() {
             let _ = self.focus_pane_with_id(active_pane_id, false, false, client_id);
