@@ -4739,6 +4739,57 @@ impl Screen {
             .find(|(_, p)| p.x() == x)
             .map(|(pid, _)| *pid)
     }
+    // Like pane_at_column_rank, but only returns the pane if its column is a *stack*
+    // (its geom carries a stack id). Used to decide whether MovePane should join the
+    // adjacent column's stack rather than swap with it.
+    fn stacked_pane_at_column_rank(tab: &Tab, rank: usize) -> Option<PaneId> {
+        let x = *Self::tiled_column_xs(tab).get(rank)?;
+        tab.get_tiled_panes()
+            .find(|(_, p)| p.x() == x && p.position_and_size().is_stacked())
+            .map(|(pid, _)| *pid)
+    }
+    // When the focused tiled pane is moved toward an adjacent column that is a stack,
+    // JOIN that stack (add the pane to it) instead of the default geometry swap — which
+    // would otherwise eject a member of the destination stack to the source position.
+    // Returns true if it handled the move; false to fall back to the default swap
+    // (non-stacked neighbor, floating panes visible, tab edge, or no room to stack).
+    fn move_active_pane_into_adjacent_stack(&mut self, to_left: bool, client_id: ClientId) -> bool {
+        let (active_pane_id, neighbor) = {
+            let tab = match self.get_active_tab(client_id) {
+                Ok(t) => t,
+                Err(_) => return false,
+            };
+            if tab.are_floating_panes_visible() {
+                return false;
+            }
+            let active_pane_id = match tab.get_active_pane_id(client_id) {
+                Some(id) => id,
+                None => return false,
+            };
+            let rank = match Self::column_rank_of(tab, &active_pane_id) {
+                Some(r) => r,
+                None => return false,
+            };
+            let neighbor_rank = if to_left {
+                match rank.checked_sub(1) {
+                    Some(r) => r,
+                    None => return false,
+                }
+            } else {
+                rank + 1
+            };
+            match Self::stacked_pane_at_column_rank(tab, neighbor_rank) {
+                Some(p) => (active_pane_id, p),
+                None => return false,
+            }
+        };
+        if self.stack_panes(vec![neighbor, active_pane_id]).is_some() {
+            let _ = self.focus_pane_with_id(active_pane_id, false, false, client_id);
+            true
+        } else {
+            false
+        }
+    }
     pub fn break_pane_to_new_tab(
         &mut self,
         direction: Direction,
@@ -7214,11 +7265,13 @@ pub(crate) fn screen_thread_main(
                 _completion_tx, // the action ends here, dropping this will release anything
                                 // waiting for it
             ) => {
-                active_tab_and_connected_client_id!(
-                    screen,
-                    client_id,
-                    |tab: &mut Tab, client_id: ClientId| tab.move_active_pane_right(client_id)
-                );
+                if !screen.move_active_pane_into_adjacent_stack(false, client_id) {
+                    active_tab_and_connected_client_id!(
+                        screen,
+                        client_id,
+                        |tab: &mut Tab, client_id: ClientId| tab.move_active_pane_right(client_id)
+                    );
+                }
                 screen.render(None)?;
                 screen.log_and_report_session_state()?;
             },
@@ -7227,11 +7280,13 @@ pub(crate) fn screen_thread_main(
                 _completion_tx, // the action ends here, dropping this will release anything
                                 // waiting for it
             ) => {
-                active_tab_and_connected_client_id!(
-                    screen,
-                    client_id,
-                    |tab: &mut Tab, client_id: ClientId| tab.move_active_pane_left(client_id)
-                );
+                if !screen.move_active_pane_into_adjacent_stack(true, client_id) {
+                    active_tab_and_connected_client_id!(
+                        screen,
+                        client_id,
+                        |tab: &mut Tab, client_id: ClientId| tab.move_active_pane_left(client_id)
+                    );
+                }
                 screen.render(None)?;
                 screen.log_and_report_session_state()?;
             },
