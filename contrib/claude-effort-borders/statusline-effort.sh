@@ -52,11 +52,13 @@ fi
 # (claude-fable-5) or display name ("Fable 5"), case-insensitively.
 case "$(printf '%s %s' "$model_id" "$model" | tr '[:upper:]' '[:lower:]')" in
   *fable*) setting="fable" ;;
+  *qwen*)  setting="qwen" ;;     # Qwen model — overrides effort
 esac
 
 # --- map setting -> hex (empty = clear the override) ---
 case "$setting" in
   fable)     color="#ff2ec4" ;;  # fuchsia (Fable model — overrides effort)
+  qwen)      color="#87ceeb" ;;  # sky blue (Qwen model)
   ultracode) color="#a667e2" ;;  # violet (Claude convention)
   max)       color="#ff3b30" ;;  # red
   xhigh)     color="#febb71" ;;  # orange
