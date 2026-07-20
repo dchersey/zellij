@@ -3,13 +3,13 @@
 Color each [zellij](https://zellij.dev) pane's **frame** by the
 [Claude Code](https://docs.claude.com/en/docs/claude-code) session's reasoning
 **effort level**, so across a screenful of parallel sessions you can see at a glance
-what each one is running at. Ultracode gets its own color, and specific **models** (Fable,
+what each one is running at. Ultracode gets its own color, and specific **models** (Opus,
 Qwen) get their own color regardless of effort.
 
 ```
 ultracode = violet    max = red    xhigh = orange
 high = cyan    medium = green    low = pink    (none = frame cleared)
-Fable model = fuchsia    Qwen model = sky blue    (override the effort color, by model not effort)
+Opus model = periwinkle    Qwen model = sky blue    (override the effort color, by model not effort)
 ```
 
 It's a Claude Code **statusLine** script: it renders the usual
@@ -121,10 +121,11 @@ Drop a JSON map at `~/.claude/effort-colors.json` (path overridable via
 `$CLAUDE_EFFORT_COLORS`) to override any level's color **without editing the script** —
 copy `effort-colors.example.json` and tweak. It's a **partial** override: only the levels
 you list change; the rest keep the built-in defaults. Recognized keys: the five effort
-levels (`low`, `medium`, `high`, `xhigh`, `max`), plus `ultracode`, `fable`, and `qwen`. The
-`fable`/`qwen` colors are applied to any Fable-/Qwen-model session (matched on the model id /
-display name), overriding the effort color — and unlike ultracode they need **no manual
-flag**, since the model is right there in the statusline JSON.
+levels (`low`, `medium`, `high`, `xhigh`, `max`), plus `ultracode`, `opus`, and `qwen`. The
+`opus`/`qwen` colors are applied to any Opus-/Qwen-model session (matched on the model id /
+display name), overriding the effort color — except **ultracode** (xhigh + its per-pane
+flag) still wins over the Opus color. Unlike ultracode, the model colors need no manual
+flag, since the model is right there in the statusline JSON.
 
 ```json
 { "xhigh": "#1e90ff" }

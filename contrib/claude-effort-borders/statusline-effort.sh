@@ -5,7 +5,7 @@
 #      what each pane is running at:
 #        ultracode = violet   max = red   xhigh = orange
 #        high = cyan   medium = green   low = pink   (none = cleared)
-#      A Fable-model session overrides all of the above with fuchsia (keyed by model, not effort).
+#      Opus and Qwen sessions get their own color (periwinkle / sky blue), by model not effort.
 #
 # Ultracode reports as xhigh via .effort.level, so we disambiguate it from a plain
 # /effort xhigh by checking the last `/effort` command recorded in the transcript.
@@ -34,31 +34,30 @@ if [ -n "$session_id" ] && [ -n "$effort" ]; then
   fi
 fi
 
-# --- effort "setting", distinguishing ultracode from a plain xhigh ---
-# Ultracode reports as "xhigh" via .effort.level and there is NO external signal
-# that separates them: the /effort argument isn't recorded in the transcript
-# (<command-args> is empty) and the ultracode reminder isn't persisted. So
-# ultracode is opt-in via a per-pane flag, set by `claude-ultracode on` (run it
-# alongside /effort ultracode). When the flag is set and we're at xhigh -> violet.
+# --- setting: start from the effort level, then apply model + ultracode overrides ---
 setting="$effort"
+
+# Model override: a few models get their own color regardless of effort, so you can spot
+# them at a glance (other models — e.g. Fable, Sonnet — just show the effort color). Match
+# the model id / display name, case-insensitively.
+case "$(printf '%s %s' "$model_id" "$model" | tr '[:upper:]' '[:lower:]')" in
+  *qwen*) setting="qwen" ;;   # local Qwen (e.g. Claude Code -> Ollama on athena)
+  *opus*) setting="opus" ;;   # Claude Opus
+esac
+
+# Ultracode (xhigh + a per-pane flag) is the explicit, top-priority signal and wins over
+# the model color — it IS an Opus mode, so it must not be masked by the plain Opus color.
+# Ultracode reports as plain "xhigh" via .effort.level with no external tell, so it's
+# opt-in via the flag set by `claude-ultracode on` (run alongside /effort ultracode).
 if [ "$effort" = "xhigh" ] && [ -n "${ZELLIJ_PANE_ID:-}" ] \
    && [ -f "${TMPDIR:-/tmp}/claude-ultracode-${ZELLIJ_PANE_ID}" ]; then
   setting="ultracode"
 fi
 
-# --- model override: Fable gets its own color, regardless of effort level ---
-# The frame normally encodes effort, but Fable is a distinct model worth spotting at a
-# glance, so a Fable session overrides the effort-derived setting. Match the model id
-# (claude-fable-5) or display name ("Fable 5"), case-insensitively.
-case "$(printf '%s %s' "$model_id" "$model" | tr '[:upper:]' '[:lower:]')" in
-  *fable*) setting="fable" ;;
-  *qwen*)  setting="qwen" ;;     # Qwen model — overrides effort
-esac
-
 # --- map setting -> hex (empty = clear the override) ---
 case "$setting" in
-  fable)     color="#ff2ec4" ;;  # fuchsia (Fable model — overrides effort)
   qwen)      color="#87ceeb" ;;  # sky blue (Qwen model)
+  opus)      color="#b0b9f9" ;;  # periwinkle (Opus model)
   ultracode) color="#a667e2" ;;  # violet (Claude convention)
   max)       color="#ff3b30" ;;  # red
   xhigh)     color="#febb71" ;;  # orange
