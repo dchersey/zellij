@@ -78,24 +78,28 @@ if [ -n "$setting" ] && [ -f "$ocfile" ]; then
 fi
 
 # --- update the zellij pane frame, only when the color changes ---
-if [ "${ZELLIJ:-}" = "0" ] && [ -n "${ZELLIJ_PANE_ID:-}" ] && command -v zellij >/dev/null 2>&1; then
-  # Key the debounce cache by SESSION + pane id. Pane ids restart from low numbers in
-  # each new session, but $TMPDIR is shared, so a pane-id-only cache would make a
-  # restored pane whose computed color matches the *previous* session's cached value
-  # get skipped — the frame override is never re-applied to the new pane, so its frame
-  # falls back to the focused-pane color (e.g. green). Per-session keys start cold on
-  # restore, so every pane's color is freshly applied (and the override is actually set,
-  # which the bell-flash recovery in the zellij fork then relies on).
+# Use the FORK's zellij explicitly: a stock zellij on PATH (e.g. Homebrew's) lacks the
+# `--frame` flag and fails silently, leaving the border unset — so never trust a bare
+# `zellij`. Prefer ~/.local/bin (the fork's install path); override with $ZELLIJ_FRAME_BIN.
+zj="${ZELLIJ_FRAME_BIN:-}"
+[ -n "$zj" ] || { [ -x "$HOME/.local/bin/zellij" ] && zj="$HOME/.local/bin/zellij" || zj="zellij"; }
+if [ "${ZELLIJ:-}" = "0" ] && [ -n "${ZELLIJ_PANE_ID:-}" ] && command -v "$zj" >/dev/null 2>&1; then
+  # Debounce cache keyed by SESSION + pane id (pane ids restart low per session but
+  # $TMPDIR is shared, so a pane-id-only key would skip a restored pane whose color
+  # matches a previous session's cached value).
   sess=$(printf '%s' "${ZELLIJ_SESSION_NAME:-nosess}" | tr -c 'A-Za-z0-9_.-' '_')
   cache="${TMPDIR:-/tmp}/claude-frame-${sess}-${ZELLIJ_PANE_ID}"
   prev=$(cat "$cache" 2>/dev/null || echo "__none__")
   if [ "$color" != "$prev" ]; then
-    printf '%s' "$color" > "$cache"
+    # Run in the FOREGROUND (only on a change, so rare) and cache ONLY after the call
+    # succeeds — a failed set (wrong binary, transient error) is then not remembered as
+    # applied, so the next render retries instead of silently giving up (self-healing).
     if [ -n "$color" ]; then
-      ( zellij action set-pane-color --pane-id "$ZELLIJ_PANE_ID" --frame "$color" >/dev/null 2>&1 & )
+      "$zj" action set-pane-color --pane-id "$ZELLIJ_PANE_ID" --frame "$color" >/dev/null 2>&1
     else
-      ( zellij action set-pane-color --pane-id "$ZELLIJ_PANE_ID" --reset >/dev/null 2>&1 & )
+      "$zj" action set-pane-color --pane-id "$ZELLIJ_PANE_ID" --reset >/dev/null 2>&1
     fi
+    if [ $? -eq 0 ]; then printf '%s' "$color" > "$cache"; fi
   fi
 fi
 
